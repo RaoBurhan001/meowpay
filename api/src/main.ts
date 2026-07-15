@@ -2,6 +2,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 
@@ -12,6 +13,11 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
   const config = app.get(ConfigService);
+
+  // Security headers (HSTS, X-Frame-Options, noSniff, etc.). CSP is disabled
+  // because this same origin serves the Swagger UI (which uses inline
+  // scripts); in a real deployment CSP would be configured at the edge/CDN.
+  app.use(helmet({ contentSecurityPolicy: false }));
 
   // Validate & strip every incoming body against its DTO. `whitelist` drops
   // unknown properties; `forbidNonWhitelisted` rejects them outright;

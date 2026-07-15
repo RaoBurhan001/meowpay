@@ -67,6 +67,8 @@ cp web/.env.local.example  web/.env.local
 | `JWT_EXPIRES_IN` | Token lifetime |
 | `STARTING_BALANCE` | Treats granted to a new account on registration (default `100`) |
 | `CORS_ORIGIN` | Allowed frontend origin (default `http://localhost:3000`) |
+| `THROTTLE_TTL` / `THROTTLE_LIMIT` | Global rate-limit window (ms) / requests per IP (default `60000` / `100`) |
+| `THROTTLE_AUTH_LIMIT` / `THROTTLE_AUTH_TTL` | Tighter limit for `POST /auth/login` (default `5` / `60000`) |
 
 **`web/.env.local`**
 
@@ -225,6 +227,13 @@ Every transfer request carries an **`idempotencyKey`** (UNIQUE in the DB).
 
 This makes client retries (dropped connections, double-clicks) safe.
 
+### Security posture
+
+- **JWT auth**; the sender is always taken from the token, never the request body — you can't spend another cat's treats. Passwords hashed with bcrypt; login errors are generic (no user enumeration). The JWT secret **fails closed in production** (the app refuses to start without one).
+- **Rate limiting** (`@nestjs/throttler`): a global per-IP cap plus a tighter limit on `POST /auth/login` to blunt password brute-forcing.
+- **Security headers** via `helmet` (HSTS, `X-Content-Type-Options`, `X-Frame-Options`, …).
+- **Strict input validation** (`whitelist` + `forbidNonWhitelisted`) and parameterized queries throughout; bearer-token auth means CSRF doesn't apply.
+
 ---
 
 ## API reference
@@ -277,7 +286,28 @@ This is a ~half-day vertical slice, so scope was cut deliberately to keep the mo
 - **JWT in client storage (localStorage) rather than an httpOnly cookie.** Simpler for a demo; a production build would prefer httpOnly cookies to mitigate XSS token theft.
 - **`synchronize: true` instead of migrations.** TypeORM auto-syncs the schema for zero-setup local dev. Production would use versioned migrations.
 - **Single-node SQLite.** Great for a portable, zero-dependency demo. The correctness design (atomic conditional debit) is not SQLite-specific and carries over to other SQL engines.
-- **No rate limiting, refresh tokens, or pagination.** All reasonable next steps, none essential to demonstrating the core transfer slice.
+- **No refresh-token / revocation flow.** Access tokens are short-lived (1 day); rotating refresh tokens and a revocation list are a reasonable next step, not essential to the core slice.
+
+---
+
+## Production readiness
+
+This slice is deliberately **not** claiming to be production-grade — a thin, correct slice was the goal. What's already in place vs. what a real deployment would still need:
+
+**In place:** atomic + idempotent + overdraft-safe transfers, JWT auth (fails closed in prod), input validation, rate limiting, security headers, consistent error shape, OpenAPI docs, and unit + e2e tests.
+
+**Would add before production:**
+
+| Area | Next step |
+| --- | --- |
+| Database | Move to Postgres; replace `synchronize: true` with **versioned migrations** (auto-sync can drop data) |
+| Auth | Refresh-token rotation + revocation; consider httpOnly-cookie storage over localStorage |
+| Ops | Dockerfile, health/readiness endpoints, structured logging, metrics/tracing, graceful shutdown |
+| CI/CD | Run tests + lint + typecheck on every push (e.g. GitHub Actions) |
+| Scale | Cursor-based pagination; connection pooling; run the transfer under `SERIALIZABLE`/row locks on an engine that supports them |
+| Money | For very large-scale ledgers, store amounts as `BIGINT`/decimal rather than JS-safe integers |
+
+None of these change the core design — they harden and scale it.
 
 ---
 
