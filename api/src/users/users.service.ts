@@ -48,4 +48,27 @@ export class UsersService {
   findById(id: string): Promise<User | null> {
     return this.usersRepository.findOne({ where: { id } });
   }
+
+  /**
+   * Prefix search over cat handles, for the recipient autocomplete. Returns a
+   * small, capped list of {catName, displayName}, excluding the caller (you
+   * can't send treats to yourself). Wildcard characters are stripped from the
+   * query so a user can't inject LIKE patterns. SQLite's LIKE is
+   * case-insensitive for ASCII, so "whisker" matches "whiskers".
+   */
+  searchByCatName(
+    query: string,
+    excludeUserId: string,
+  ): Promise<Array<{ catName: string; displayName: string }>> {
+    const q = query.trim().replace(/[%_]/g, '');
+    if (!q) return Promise.resolve([]);
+    return this.usersRepository
+      .createQueryBuilder('u')
+      .select(['u.catName AS "catName"', 'u.displayName AS "displayName"'])
+      .where('u.catName LIKE :q', { q: `${q}%` })
+      .andWhere('u.id != :id', { id: excludeUserId })
+      .orderBy('u.catName', 'ASC')
+      .limit(8)
+      .getRawMany();
+  }
 }

@@ -1,8 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, TransferHistoryItem } from '@/lib/api';
+import { api, CatSummary, TransferHistoryItem } from '@/lib/api';
 import { clearSession, getToken, getUser } from '@/lib/auth';
 import { BalanceCard } from '@/components/BalanceCard';
 import { SendTreatsForm } from '@/components/SendTreatsForm';
@@ -42,6 +42,22 @@ export default function DashboardPage() {
     void refresh();
   }, [router, refresh]);
 
+  // Distinct cats this user has sent to before, newest first — powers the
+  // one-click "recent recipients" chips. Derived from history, so no extra
+  // request is needed.
+  const recentRecipients = useMemo<CatSummary[]>(() => {
+    const seen = new Set<string>();
+    const list: CatSummary[] = [];
+    for (const tx of history) {
+      if (tx.direction === 'sent' && !seen.has(tx.recipientCatName)) {
+        seen.add(tx.recipientCatName);
+        list.push({ catName: tx.recipientCatName, displayName: tx.recipientCatName });
+      }
+      if (list.length >= 5) break;
+    }
+    return list;
+  }, [history]);
+
   function logout() {
     clearSession();
     router.replace('/login');
@@ -53,7 +69,7 @@ export default function DashboardPage() {
         <div className="brand">
           <span className="logo">🐱</span> MeowPay
         </div>
-        <button className="link" onClick={logout}>
+        <button className="btn-ghost" onClick={logout}>
           Sign out
         </button>
       </div>
@@ -66,7 +82,7 @@ export default function DashboardPage() {
       ) : (
         <div className="stack">
           <BalanceCard balance={balance} catName={catName} />
-          <SendTreatsForm onSent={refresh} />
+          <SendTreatsForm recentRecipients={recentRecipients} onSent={refresh} />
           <TransactionList items={history} />
         </div>
       )}

@@ -55,6 +55,11 @@ export interface Balance {
   catName: string;
 }
 
+export interface CatSummary {
+  catName: string;
+  displayName: string;
+}
+
 export interface TransferHistoryItem {
   id: string;
   amount: number;
@@ -79,6 +84,9 @@ export const api = {
   getBalance: () => apiFetch<Balance>('/wallets/me'),
 
   getHistory: () => apiFetch<TransferHistoryItem[]>('/transfers'),
+
+  searchRecipients: (q: string) =>
+    apiFetch<CatSummary[]>(`/users/search?q=${encodeURIComponent(q)}`),
 
   sendTreats: (data: { recipientCatName: string; amount: number; idempotencyKey: string }) =>
     apiFetch<unknown>('/transfers', { method: 'POST', body: JSON.stringify(data) }),

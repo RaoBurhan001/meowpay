@@ -91,6 +91,26 @@ button.link {
   font-weight: 600; text-decoration: underline;
 }
 
+/* Themed secondary button (e.g. Sign out) — ghost style that fits the palette
+   in both light and dark, instead of a bare underlined link. */
+button.btn-ghost {
+  width: auto;
+  margin: 0;
+  padding: 7px 14px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: var(--shadow);
+}
+button.btn-ghost:hover:not(:disabled) {
+  background: var(--bg);
+  border-color: var(--brand);
+  color: var(--brand);
+}
+
 a { color: var(--accent); }
 
 .alert { border-radius: 10px; padding: 10px 12px; font-size: 14px; margin-top: 12px; }
@@ -111,3 +131,59 @@ a { color: var(--accent); }
 .tx .when { color: var(--muted); font-size: 12px; }
 
 .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+
+/* Recipient autocomplete */
+.autocomplete { position: relative; }
+.suggestions {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 4px;
+  position: absolute;
+  z-index: 10;
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  max-height: 220px;
+  overflow-y: auto;
+}
+.suggestion {
+  width: 100%;
+  margin: 0;
+  padding: 8px 10px;
+  background: none;
+  color: var(--text);
+  border: none;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.suggestion:hover { background: var(--bg); }
+.suggestion .who { font-weight: 700; }
+.suggestion .muted { font-size: 13px; }
+
+/* Recent-recipient quick-send chips */
+.recents { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip {
+  width: auto;
+  margin: 0;
+  padding: 5px 12px;
+  background: rgba(232, 134, 58, 0.12);
+  color: var(--brand-dark);
+  border: 1px solid rgba(232, 134, 58, 0.35);
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.chip:hover:not(:disabled) { background: var(--brand); color: #fff; border-color: var(--brand); }
+
+@media (prefers-color-scheme: dark) {
+  .chip { color: var(--brand); }
+}

@@ -142,7 +142,7 @@ The transfer path is a single vertical slice: **UI → guard → validation → 
 
 ### Layers
 
-1. **Web (Next.js)** — App Router pages call the API over HTTP. The JWT returned at login is stored client-side and attached to authenticated requests.
+1. **Web (Next.js)** — App Router pages call the API over HTTP. The JWT returned at login is stored client-side and attached to authenticated requests. The dashboard offers a live **recipient autocomplete** (type a few letters of a cat's handle) and **recent-recipient chips** for one-click reuse of cats you've sent to before.
 2. **API (NestJS)** — Thin controllers delegate to services. DTOs are validated by `class-validator` behind a global `ValidationPipe`; a global exception filter produces a consistent JSON error shape. Interactive OpenAPI docs are served at **`/docs`**.
 3. **Database (SQLite via TypeORM)** — Persists users, wallets, and an immutable transfer ledger.
 
@@ -238,6 +238,7 @@ All amounts are integer treats. Authenticated endpoints require a `Bearer <JWT>`
 | `POST` | `/auth/register` | — | credentials | New account (seeded with `STARTING_BALANCE` treats) |
 | `POST` | `/auth/login` | — | credentials | JWT access token |
 | `GET` | `/wallets/me` | JWT | — | The authenticated cat's wallet & balance |
+| `GET` | `/users/search?q=` | JWT | — | Cats whose handle starts with `q` (recipient autocomplete; excludes self) |
 | `POST` | `/transfers` | JWT | `{ recipientCatName, amount, idempotencyKey }` | The created (or original, if idempotent) transfer |
 | `GET` | `/transfers` | JWT | — | Transfer history with direction (`sent` / `received`) |
 
