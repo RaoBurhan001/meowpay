@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+.next/
+
+# Test coverage
+coverage/
+
+# Local SQLite database
+*.sqlite
+*.sqlite-journal
+
+# Environment files
+.env
+.env.local

@@ -1,0 +1,16 @@
+{
+  "name": "meowpay",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MeowPay monorepo runner — NestJS API + Next.js web",
+  "scripts": {
+    "dev": "concurrently --names \"api,web\" --prefix \"[{name}]\" \"cd api && npm run start:dev\" \"cd web && npm run dev\"",
+    "install:all": "npm install && npm install --prefix api && npm install --prefix web",
+    "seed": "npm run seed --prefix api",
+    "test": "npm test --prefix api",
+    "test:e2e": "npm run test:e2e --prefix api"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.1"
+  }
+}
