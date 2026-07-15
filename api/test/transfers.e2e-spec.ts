@@ -64,9 +64,10 @@ describe('Transfers (e2e)', () => {
     // The transfer appears in both histories with the right direction.
     const aliceHist = await http().get('/transfers').set('Authorization', `Bearer ${alice}`).expect(200);
     const bobHist = await http().get('/transfers').set('Authorization', `Bearer ${bob}`).expect(200);
-    expect(aliceHist.body).toHaveLength(1);
-    expect(aliceHist.body[0]).toMatchObject({ direction: 'sent', amount: 40, recipientCatName: 'bob' });
-    expect(bobHist.body[0]).toMatchObject({ direction: 'received', amount: 40, senderCatName: 'alice' });
+    expect(aliceHist.body.total).toBe(1);
+    expect(aliceHist.body.items).toHaveLength(1);
+    expect(aliceHist.body.items[0]).toMatchObject({ direction: 'sent', amount: 40, recipientCatName: 'bob' });
+    expect(bobHist.body.items[0]).toMatchObject({ direction: 'received', amount: 40, senderCatName: 'alice' });
   });
 
   it('rejects sending more treats than the sender holds (400) and leaves balances untouched', async () => {
@@ -117,8 +118,30 @@ describe('Transfers (e2e)', () => {
 
     const hist = await http().get('/transfers').set('Authorization', `Bearer ${quinn}`).expect(200);
     // e.g. "2026-07-15T22:37:56.000Z" — parseable and timezone-aware.
-    expect(hist.body[0].createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
-    expect(Number.isNaN(Date.parse(hist.body[0].createdAt))).toBe(false);
+    expect(hist.body.items[0].createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+    expect(Number.isNaN(Date.parse(hist.body.items[0].createdAt))).toBe(false);
+  });
+
+  it('paginates history: 5 per page by default, with correct totals across pages', async () => {
+    const sam = await registerCat('sam'); // starts with 100
+    await registerCat('tina');
+    // 7 sends of 1 treat each -> 7 history rows for sam.
+    for (let i = 0; i < 7; i++) {
+      await send(sam, { recipientCatName: 'tina', amount: 1, idempotencyKey: `e2e-pg-${i}` }).expect(201);
+    }
+
+    const p1 = await http().get('/transfers?page=1&limit=5').set('Authorization', `Bearer ${sam}`).expect(200);
+    expect(p1.body).toMatchObject({ total: 7, page: 1, limit: 5, totalPages: 2 });
+    expect(p1.body.items).toHaveLength(5);
+
+    const p2 = await http().get('/transfers?page=2&limit=5').set('Authorization', `Bearer ${sam}`).expect(200);
+    expect(p2.body.page).toBe(2);
+    expect(p2.body.items).toHaveLength(2);
+
+    // No id appears on both pages (offset works, no overlap).
+    const p1ids = new Set(p1.body.items.map((t: { id: string }) => t.id));
+    const overlap = p2.body.items.filter((t: { id: string }) => p1ids.has(t.id));
+    expect(overlap).toHaveLength(0);
   });
 
   it('is idempotent: re-submitting the same key does NOT charge twice', async () => {

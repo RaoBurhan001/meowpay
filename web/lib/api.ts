@@ -70,6 +70,14 @@ export interface TransferHistoryItem {
   direction: 'sent' | 'received';
 }
 
+export interface PaginatedTransfers {
+  items: TransferHistoryItem[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
 export const api = {
   register: (data: {
     email: string;
@@ -83,7 +91,8 @@ export const api = {
 
   getBalance: () => apiFetch<Balance>('/wallets/me'),
 
-  getHistory: () => apiFetch<TransferHistoryItem[]>('/transfers'),
+  getHistory: (page = 1, limit = 5) =>
+    apiFetch<PaginatedTransfers>(`/transfers?page=${page}&limit=${limit}`),
 
   searchRecipients: (q: string) =>
     apiFetch<CatSummary[]>(`/users/search?q=${encodeURIComponent(q)}`),

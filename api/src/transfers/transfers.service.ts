@@ -29,6 +29,19 @@ export interface TransferHistoryItem extends TransferView {
   direction: 'sent' | 'received';
 }
 
+/** A page of history plus the metadata the UI needs to render controls. */
+export interface PaginatedTransfers {
+  items: TransferHistoryItem[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+/** Default and maximum page sizes for history — small by design (UI shows 5). */
+export const DEFAULT_HISTORY_LIMIT = 5;
+export const MAX_HISTORY_LIMIT = 50;
+
 /**
  * The heart of MeowPay: moving treats from one cat to another, correctly.
  *
@@ -143,12 +156,35 @@ export class TransfersService {
   }
 
   /**
-   * All transfers the given cat took part in, newest first, each tagged with
-   * whether they sent or received. One joined query — no N+1 lookups.
+   * A page of transfers the given cat took part in, newest first, each tagged
+   * with whether they sent or received. Paginated server-side (LIMIT/OFFSET)
+   * so we never ship the whole ledger to the client. One joined query for the
+   * page + one cheap COUNT for the total — no N+1 lookups.
    */
-  async getHistoryForUser(userId: string): Promise<TransferHistoryItem[]> {
+  async getHistoryForUser(
+    userId: string,
+    page = 1,
+    limit = DEFAULT_HISTORY_LIMIT,
+  ): Promise<PaginatedTransfers> {
+    // Clamp inputs so a client can't request page 0 or an unbounded page size.
+    const safePage = Math.max(1, Math.floor(page) || 1);
+    const safeLimit = Math.min(
+      MAX_HISTORY_LIMIT,
+      Math.max(1, Math.floor(limit) || DEFAULT_HISTORY_LIMIT),
+    );
+
     const wallet = await this.walletsService.findByUserId(userId);
-    if (!wallet) return [];
+    if (!wallet) {
+      return { items: [], total: 0, page: safePage, limit: safeLimit, totalPages: 0 };
+    }
+
+    // Total count of transfers this cat is part of (for the page controls).
+    const total = await this.transfersRepository
+      .createQueryBuilder('t')
+      .where('t.senderWalletId = :wid OR t.recipientWalletId = :wid', {
+        wid: wallet.id,
+      })
+      .getCount();
 
     const rows = await this.transfersRepository
       .createQueryBuilder('t')
@@ -169,9 +205,11 @@ export class TransfersService {
         wid: wallet.id,
       })
       .orderBy('t.createdAt', 'DESC')
+      .limit(safeLimit)
+      .offset((safePage - 1) * safeLimit)
       .getRawMany();
 
-    return rows.map((r) => ({
+    const items: TransferHistoryItem[] = rows.map((r) => ({
       id: r.id,
       amount: Number(r.amount),
       status: r.status,
@@ -184,6 +222,14 @@ export class TransfersService {
       recipientCatName: r.recipientCatName,
       direction: r.senderWalletId === wallet.id ? 'sent' : 'received',
     }));
+
+    return {
+      items,
+      total,
+      page: safePage,
+      limit: safeLimit,
+      totalPages: Math.ceil(total / safeLimit),
+    };
   }
 
   /** Reject reuse of an idempotency key for a materially different transfer. */

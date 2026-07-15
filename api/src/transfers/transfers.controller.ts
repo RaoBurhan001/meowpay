@@ -1,5 +1,14 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  DefaultValuePipe,
+  Get,
+  ParseIntPipe,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import {
   AuthUser,
   CurrentUser,
@@ -7,7 +16,8 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreateTransferDto } from './dto/create-transfer.dto';
 import {
-  TransferHistoryItem,
+  DEFAULT_HISTORY_LIMIT,
+  PaginatedTransfers,
   TransfersService,
   TransferView,
 } from './transfers.service';
@@ -34,8 +44,15 @@ export class TransfersController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'List the authenticated cat\'s transfer history' })
-  history(@CurrentUser() user: AuthUser): Promise<TransferHistoryItem[]> {
-    return this.transfersService.getHistoryForUser(user.userId);
+  @ApiOperation({ summary: 'List the authenticated cat\'s transfer history (paginated)' })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: DEFAULT_HISTORY_LIMIT })
+  history(
+    @CurrentUser() user: AuthUser,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(DEFAULT_HISTORY_LIMIT), ParseIntPipe)
+    limit: number,
+  ): Promise<PaginatedTransfers> {
+    return this.transfersService.getHistoryForUser(user.userId, page, limit);
   }
 }

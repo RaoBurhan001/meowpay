@@ -1,37 +1,70 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, CatSummary, TransferHistoryItem } from '@/lib/api';
+import { api, CatSummary, PaginatedTransfers } from '@/lib/api';
 import { clearSession, getToken, getUser } from '@/lib/auth';
 import { BalanceCard } from '@/components/BalanceCard';
 import { SendTreatsForm } from '@/components/SendTreatsForm';
 import { TransactionList } from '@/components/TransactionList';
 
+/** Activity page size — matches the backend default. */
+const HISTORY_LIMIT = 5;
+
 /**
- * The main screen. Owns the live data (balance + history) and re-fetches it
- * after a successful send, so the numbers a user sees always come from the
- * real backend — never optimistic local state.
+ * The main screen. Owns the live data (balance + paginated history) and
+ * re-fetches it from the real backend after every send, so the numbers a user
+ * sees are never optimistic local state.
  */
 export default function DashboardPage() {
   const router = useRouter();
   const [catName, setCatName] = useState('');
   const [balance, setBalance] = useState<number | null>(null);
-  const [history, setHistory] = useState<TransferHistoryItem[]>([]);
+  const [historyData, setHistoryData] = useState<PaginatedTransfers | null>(null);
+  const [recent, setRecent] = useState<CatSummary[]>([]);
   const [loadError, setLoadError] = useState('');
 
-  // Pull the current balance and history from the API in parallel.
-  const refresh = useCallback(async () => {
-    try {
-      const [b, h] = await Promise.all([api.getBalance(), api.getHistory()]);
-      setBalance(b.balance);
-      setCatName(b.catName);
-      setHistory(h);
-    } catch {
-      // Token expired / invalid — send the user back to sign in.
-      setLoadError('Your session expired. Please sign in again.');
+  // Fetch one page of history. Recent-recipient chips are derived from page 1
+  // (the newest transfers) and left untouched while browsing later pages, so
+  // paging through history doesn't churn the quick-send list.
+  const loadHistory = useCallback(async (page: number) => {
+    const data = await api.getHistory(page, HISTORY_LIMIT);
+    setHistoryData(data);
+    if (data.page === 1) {
+      const seen = new Set<string>();
+      const list: CatSummary[] = [];
+      for (const tx of data.items) {
+        if (tx.direction === 'sent' && !seen.has(tx.recipientCatName)) {
+          seen.add(tx.recipientCatName);
+          list.push({ catName: tx.recipientCatName, displayName: tx.recipientCatName });
+        }
+      }
+      setRecent(list);
     }
   }, []);
+
+  // Refresh balance + jump back to the newest page (a new send lands there).
+  const refresh = useCallback(async () => {
+    try {
+      const b = await api.getBalance();
+      setBalance(b.balance);
+      setCatName(b.catName);
+      await loadHistory(1);
+    } catch {
+      setLoadError('Your session expired. Please sign in again.');
+    }
+  }, [loadHistory]);
+
+  const changePage = useCallback(
+    async (page: number) => {
+      try {
+        await loadHistory(page);
+      } catch {
+        setLoadError('Your session expired. Please sign in again.');
+      }
+    },
+    [loadHistory],
+  );
 
   useEffect(() => {
     if (!getToken()) {
@@ -41,22 +74,6 @@ export default function DashboardPage() {
     setCatName(getUser()?.catName ?? '');
     void refresh();
   }, [router, refresh]);
-
-  // Distinct cats this user has sent to before, newest first — powers the
-  // one-click "recent recipients" chips. Derived from history, so no extra
-  // request is needed.
-  const recentRecipients = useMemo<CatSummary[]>(() => {
-    const seen = new Set<string>();
-    const list: CatSummary[] = [];
-    for (const tx of history) {
-      if (tx.direction === 'sent' && !seen.has(tx.recipientCatName)) {
-        seen.add(tx.recipientCatName);
-        list.push({ catName: tx.recipientCatName, displayName: tx.recipientCatName });
-      }
-      if (list.length >= 5) break;
-    }
-    return list;
-  }, [history]);
 
   function logout() {
     clearSession();
@@ -82,8 +99,14 @@ export default function DashboardPage() {
       ) : (
         <div className="stack">
           <BalanceCard balance={balance} catName={catName} />
-          <SendTreatsForm recentRecipients={recentRecipients} onSent={refresh} />
-          <TransactionList items={history} />
+          <SendTreatsForm recentRecipients={recent} onSent={refresh} />
+          <TransactionList
+            items={historyData?.items ?? []}
+            page={historyData?.page ?? 1}
+            totalPages={historyData?.totalPages ?? 0}
+            total={historyData?.total ?? 0}
+            onPageChange={changePage}
+          />
         </div>
       )}
     </main>

@@ -146,6 +146,18 @@ a { color: var(--accent); }
 .tx-icon.sent { background: rgba(208, 71, 63, 0.14); color: var(--bad); }
 .tx-icon.received { background: rgba(46, 158, 107, 0.14); color: var(--good); }
 
+/* History pagination controls */
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.pager button.btn-ghost { padding: 6px 12px; font-size: 13px; }
+
 .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
 
 /* Recipient autocomplete */
