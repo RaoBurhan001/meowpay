@@ -21,11 +21,20 @@ export function TransactionList({ items }: { items: TransferHistoryItem[] }) {
         const other = sent ? tx.recipientCatName : tx.senderCatName;
         return (
           <div className="tx" key={tx.id}>
-            <div>
-              <div className="who">
-                {sent ? 'Sent to' : 'Received from'} @{other}
+            <div className="tx-left">
+              {/* Directional arrow: outgoing (↗) for sent, incoming (↙) for received. */}
+              <span
+                className={`tx-icon ${sent ? 'sent' : 'received'}`}
+                aria-label={sent ? 'sent' : 'received'}
+              >
+                {sent ? '↗' : '↙'}
+              </span>
+              <div>
+                <div className="who">
+                  {sent ? 'Sent to' : 'Received from'} @{other}
+                </div>
+                <div className="when">{new Date(tx.createdAt).toLocaleString()}</div>
               </div>
-              <div className="when">{new Date(tx.createdAt).toLocaleString()}</div>
             </div>
             <div className={`amt ${sent ? 'sent' : 'received'}`}>
               {sent ? '−' : '+'}

@@ -123,12 +123,28 @@ a { color: var(--accent); }
 .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .stack > * + * { margin-top: 16px; }
 
-.tx { display: flex; justify-content: space-between; padding: 12px 0; border-top: 1px solid var(--border); }
+.tx { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-top: 1px solid var(--border); }
 .tx:first-child { border-top: none; }
+.tx-left { display: flex; align-items: center; gap: 12px; }
 .tx .amt.sent { color: var(--bad); font-weight: 700; }
 .tx .amt.received { color: var(--good); font-weight: 700; }
 .tx .who { font-weight: 600; }
 .tx .when { color: var(--muted); font-size: 12px; }
+
+/* Direction icon: a colored circle with an arrow — outbound (sent) vs inbound (received). */
+.tx-icon {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1;
+}
+.tx-icon.sent { background: rgba(208, 71, 63, 0.14); color: var(--bad); }
+.tx-icon.received { background: rgba(46, 158, 107, 0.14); color: var(--good); }
 
 .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
 
