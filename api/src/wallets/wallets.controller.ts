@@ -1,4 +1,5 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   AuthUser,
   CurrentUser,
@@ -11,12 +12,15 @@ import { WalletsService } from './wallets.service';
  * ever see its own balance, identified from the token, never a wallet id in
  * the URL.
  */
+@ApiTags('wallets')
+@ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller('wallets')
 export class WalletsController {
   constructor(private readonly walletsService: WalletsService) {}
 
   @Get('me')
+  @ApiOperation({ summary: "Get the authenticated cat's treat balance" })
   async getMyBalance(
     @CurrentUser() user: AuthUser,
   ): Promise<{ balance: number; catName: string }> {

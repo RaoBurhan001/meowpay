@@ -116,10 +116,34 @@ Open **http://localhost:3000**, log in as a seeded cat (e.g. `whiskers` / `passw
 
 ## How it works
 
+### Architecture
+
+```mermaid
+flowchart LR
+    subgraph Browser
+        UI["Next.js UI<br/>login · dashboard · send form"]
+    end
+
+    subgraph API["NestJS API (:3001)"]
+        direction TB
+        GD["JwtAuthGuard"] --> CT["Controllers<br/>(thin)"]
+        VP["ValidationPipe + DTOs"] --> CT
+        CT --> SV["Services<br/>Auth · Wallets · Transfers"]
+        SV --> EF["Global exception filter"]
+    end
+
+    DB[("SQLite<br/>users · wallets · transfers")]
+
+    UI -->|"HTTP + Bearer JWT"| GD
+    SV -->|"TypeORM<br/>(atomic transaction)"| DB
+```
+
+The transfer path is a single vertical slice: **UI → guard → validation → service → one atomic SQL transaction → persisted balances + ledger**, with nothing mocked.
+
 ### Layers
 
 1. **Web (Next.js)** — App Router pages call the API over HTTP. The JWT returned at login is stored client-side and attached to authenticated requests.
-2. **API (NestJS)** — Thin controllers delegate to services. DTOs are validated by `class-validator` behind a global `ValidationPipe`; a global exception filter produces a consistent JSON error shape.
+2. **API (NestJS)** — Thin controllers delegate to services. DTOs are validated by `class-validator` behind a global `ValidationPipe`; a global exception filter produces a consistent JSON error shape. Interactive OpenAPI docs are served at **`/docs`**.
 3. **Database (SQLite via TypeORM)** — Persists users, wallets, and an immutable transfer ledger.
 
 ### The transfer flow, step by step
@@ -134,6 +158,33 @@ When a cat sends treats (`POST /transfers`):
    - **Insert** an immutable row into the `transfers` ledger.
 4. If any step fails (e.g. insufficient funds), the whole transaction **rolls back** — no partial state.
 5. The persisted transfer is returned. History (`GET /transfers`) shows each transfer with its direction (`sent` / `received`).
+
+```mermaid
+sequenceDiagram
+    participant U as Web UI
+    participant A as API (TransfersService)
+    participant DB as SQLite
+
+    U->>A: POST /transfers { recipient, amount, idempotencyKey } + JWT
+    A->>DB: idempotencyKey seen before?
+    alt key already used
+        DB-->>A: existing transfer
+        A-->>U: 200 — original transfer (no double charge)
+    else new transfer
+        rect rgb(230, 245, 235)
+        note over A,DB: one atomic transaction
+        A->>DB: UPDATE wallet SET balance = balance - amt WHERE id = sender AND balance ≥ amt
+        alt 0 rows changed
+            A->>DB: ROLLBACK
+            A-->>U: 400 — insufficient treats
+        else debited
+            A->>DB: credit recipient + INSERT ledger row (unique idempotencyKey)
+            A->>DB: COMMIT
+            A-->>U: 201 — transfer completed
+        end
+        end
+    end
+```
 
 ### Data model
 
@@ -177,6 +228,8 @@ This makes client retries (dropped connections, double-clicks) safe.
 ---
 
 ## API reference
+
+Interactive OpenAPI/Swagger docs run at **http://localhost:3001/docs** once the API is up — you can paste a JWT from `/auth/login` into the **Authorize** box and call the guarded endpoints straight from the browser. The raw spec is at `/docs-json`.
 
 All amounts are integer treats. Authenticated endpoints require a `Bearer <JWT>` header.
 

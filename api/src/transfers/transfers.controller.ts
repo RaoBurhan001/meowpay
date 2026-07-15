@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   AuthUser,
   CurrentUser,
@@ -16,12 +17,15 @@ import {
  * authenticated cat (taken from the token), never a field in the request, so
  * one cat can never spend another's treats.
  */
+@ApiTags('transfers')
+@ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller('transfers')
 export class TransfersController {
   constructor(private readonly transfersService: TransfersService) {}
 
   @Post()
+  @ApiOperation({ summary: 'Send treats to another cat (idempotent, atomic)' })
   create(
     @CurrentUser() user: AuthUser,
     @Body() dto: CreateTransferDto,
@@ -30,6 +34,7 @@ export class TransfersController {
   }
 
   @Get()
+  @ApiOperation({ summary: 'List the authenticated cat\'s transfer history' })
   history(@CurrentUser() user: AuthUser): Promise<TransferHistoryItem[]> {
     return this.transfersService.getHistoryForUser(user.userId);
   }

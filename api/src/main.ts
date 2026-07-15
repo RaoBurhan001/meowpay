@@ -1,6 +1,7 @@
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 
@@ -30,6 +31,17 @@ async function bootstrap(): Promise<void> {
   app.enableCors({
     origin: config.get<string>('CORS_ORIGIN', 'http://localhost:3000'),
   });
+
+  // Interactive OpenAPI docs at /docs. The `addBearerAuth()` lets you paste a
+  // JWT (from /auth/login) into the "Authorize" box and call guarded routes.
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle('MeowPay API')
+    .setDescription('Send treats between cats — the money-movement slice.')
+    .setVersion('1.0')
+    .addBearerAuth()
+    .build();
+  const document = SwaggerModule.createDocument(app, swaggerConfig);
+  SwaggerModule.setup('docs', app, document);
 
   const port = Number(config.get('PORT', 3001));
   await app.listen(port);
